@@ -1,7 +1,6 @@
 import type React from "react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { MobileFab } from "@/components/mobile-fab"
 
 export default function DashboardLayout({
   children,
@@ -15,7 +14,6 @@ export default function DashboardLayout({
         <DashboardSidebar />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
-      <MobileFab />
     </div>
   )
 }
