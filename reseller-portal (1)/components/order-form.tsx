@@ -1,0 +1,659 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { softwarePackages, bundles, validateSerialNumber, generateLicenseKey } from "@/lib/data"
+import { AlertCircle, Check, Plus, Minus } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+type OrderType = "software" | "bundle"
+type OrderStep = "product" | "stations" | "customer" | "review" | "licenses"
+
+interface Station {
+  serialNumber: string
+  isValid: boolean
+  softwareLicenseKey?: string
+  warrantyLicenseKey?: string
+}
+
+export function OrderForm() {
+  const router = useRouter()
+  const { toast } = useToast()
+
+  // Order state
+  const [orderType, setOrderType] = useState<OrderType>("software")
+  const [currentStep, setCurrentStep] = useState<OrderStep>("product")
+  const [selectedSoftware, setSelectedSoftware] = useState("")
+  const [selectedBundle, setSelectedBundle] = useState("")
+  const [softwareTerm, setSoftwareTerm] = useState("1")
+  const [warrantyTerm, setWarrantyTerm] = useState("1")
+  const [stationCount, setStationCount] = useState(1)
+  const [stations, setStations] = useState<Station[]>([{ serialNumber: "", isValid: false }])
+
+  // Customer information
+  const [customer, setCustomer] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
+  })
+
+  const handleStationCountChange = (count: number) => {
+    if (count < 1) return
+
+    setStationCount(count)
+
+    // Update stations array to match the new count
+    if (count > stations.length) {
+      // Add new stations
+      const newStations = [...stations]
+      for (let i = stations.length; i < count; i++) {
+        newStations.push({ serialNumber: "", isValid: false })
+      }
+      setStations(newStations)
+    } else if (count < stations.length) {
+      // Remove excess stations
+      setStations(stations.slice(0, count))
+    }
+  }
+
+  const handleSerialNumberChange = (index: number, value: string) => {
+    const updatedStations = [...stations]
+    updatedStations[index] = {
+      ...updatedStations[index],
+      serialNumber: value,
+      isValid: false, // Reset validation when serial number changes
+    }
+    setStations(updatedStations)
+  }
+
+  const validateStationSerialNumber = (index: number) => {
+    const updatedStations = [...stations]
+    const isValid = validateSerialNumber(updatedStations[index].serialNumber)
+    updatedStations[index] = { ...updatedStations[index], isValid }
+    setStations(updatedStations)
+    return isValid
+  }
+
+  const validateAllSerialNumbers = () => {
+    let allValid = true
+    const updatedStations = stations.map((station) => {
+      const isValid = validateSerialNumber(station.serialNumber)
+      if (!isValid) allValid = false
+      return { ...station, isValid }
+    })
+
+    setStations(updatedStations)
+    return allValid
+  }
+
+  const generateLicenseKeys = () => {
+    const updatedStations = stations.map((station) => {
+      const softwareLicenseKey = generateLicenseKey("software", station.serialNumber)
+      let warrantyLicenseKey
+
+      if (orderType === "bundle") {
+        warrantyLicenseKey = generateLicenseKey("warranty", station.serialNumber)
+      }
+
+      return {
+        ...station,
+        softwareLicenseKey,
+        warrantyLicenseKey,
+      }
+    })
+
+    setStations(updatedStations)
+  }
+
+  const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setCustomer((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const nextStep = () => {
+    if (currentStep === "product") {
+      setCurrentStep("stations")
+    } else if (currentStep === "stations") {
+      if (!validateAllSerialNumbers()) {
+        toast({
+          title: "Invalid Serial Numbers",
+          description: "Please ensure all serial numbers are valid.",
+          variant: "destructive",
+        })
+        return
+      }
+      setCurrentStep("customer")
+    } else if (currentStep === "customer") {
+      setCurrentStep("review")
+    } else if (currentStep === "review") {
+      generateLicenseKeys()
+      setCurrentStep("licenses")
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStep === "stations") {
+      setCurrentStep("product")
+    } else if (currentStep === "customer") {
+      setCurrentStep("stations")
+    } else if (currentStep === "review") {
+      setCurrentStep("customer")
+    } else if (currentStep === "licenses") {
+      setCurrentStep("review")
+    }
+  }
+
+  const handleSubmit = () => {
+    // In a real application, this would submit the order to your backend
+    toast({
+      title: "Order Submitted",
+      description: "Your order has been successfully submitted.",
+    })
+    router.push("/dashboard/orders")
+  }
+
+  const calculateTotal = () => {
+    let pricePerStation = 0
+
+    if (orderType === "software") {
+      const software = softwarePackages.find((sw) => sw.id === selectedSoftware)
+      if (software) {
+        pricePerStation = software.pricePerStation * Number.parseInt(softwareTerm)
+      }
+    } else if (orderType === "bundle") {
+      const bundle = bundles.find((b) => b.id === selectedBundle)
+      if (bundle) {
+        // For bundles, we assume the price already includes both components for 1 year
+        // and we multiply by the max term between software and warranty
+        const term = Math.max(Number.parseInt(softwareTerm), Number.parseInt(warrantyTerm))
+        pricePerStation = bundle.pricePerStation * term
+      }
+    }
+
+    const total = pricePerStation * stationCount
+    return {
+      pricePerStation: pricePerStation.toFixed(2),
+      total: total.toFixed(2),
+    }
+  }
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Create New Order</CardTitle>
+        <CardDescription>Select products, enter station information, and collect customer details</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {currentStep === "product" && (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <Label>Order Type</Label>
+              <RadioGroup
+                value={orderType}
+                onValueChange={(value) => setOrderType(value as OrderType)}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+              >
+                <div>
+                  <RadioGroupItem value="software" id="software" className="peer sr-only" />
+                  <Label
+                    htmlFor="software"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span>Software Package</span>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem value="bundle" id="bundle" className="peer sr-only" />
+                  <Label
+                    htmlFor="bundle"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span>Bundle (Software + Warranty)</span>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {orderType === "software" && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="software-package">Software Package</Label>
+                  <Select value={selectedSoftware} onValueChange={setSelectedSoftware}>
+                    <SelectTrigger id="software-package">
+                      <SelectValue placeholder="Select a software package" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {softwarePackages.map((software) => (
+                        <SelectItem key={software.id} value={software.id}>
+                          {software.name} - ${software.pricePerStation}/station
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="software-term">Term (Years)</Label>
+                  <Select value={softwareTerm} onValueChange={setSoftwareTerm}>
+                    <SelectTrigger id="software-term">
+                      <SelectValue placeholder="Select term length" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Year</SelectItem>
+                      <SelectItem value="2">2 Years</SelectItem>
+                      <SelectItem value="3">3 Years</SelectItem>
+                      <SelectItem value="4">4 Years</SelectItem>
+                      <SelectItem value="5">5 Years</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {orderType === "bundle" && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="bundle-package">Bundle Package</Label>
+                  <Select value={selectedBundle} onValueChange={setSelectedBundle}>
+                    <SelectTrigger id="bundle-package">
+                      <SelectValue placeholder="Select a bundle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bundles.map((bundle) => (
+                        <SelectItem key={bundle.id} value={bundle.id}>
+                          {bundle.name} - ${bundle.pricePerStation}/station
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="bundle-software-term">Software Term (Years)</Label>
+                    <Select value={softwareTerm} onValueChange={setSoftwareTerm}>
+                      <SelectTrigger id="bundle-software-term">
+                        <SelectValue placeholder="Select term length" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Year</SelectItem>
+                        <SelectItem value="2">2 Years</SelectItem>
+                        <SelectItem value="3">3 Years</SelectItem>
+                        <SelectItem value="4">4 Years</SelectItem>
+                        <SelectItem value="5">5 Years</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="bundle-warranty-term">Warranty Term (Years)</Label>
+                    <Select value={warrantyTerm} onValueChange={setWarrantyTerm}>
+                      <SelectTrigger id="bundle-warranty-term">
+                        <SelectValue placeholder="Select term length" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Year</SelectItem>
+                        <SelectItem value="2">2 Years</SelectItem>
+                        <SelectItem value="3">3 Years</SelectItem>
+                        <SelectItem value="4">4 Years</SelectItem>
+                        <SelectItem value="5">5 Years</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentStep === "stations" && (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <Label htmlFor="station-count">Number of Charging Stations</Label>
+              <div className="flex items-center space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleStationCountChange(stationCount - 1)}
+                  disabled={stationCount <= 1}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Input
+                  id="station-count"
+                  type="number"
+                  min="1"
+                  value={stationCount}
+                  onChange={(e) => handleStationCountChange(Number.parseInt(e.target.value) || 1)}
+                  className="w-20 text-center"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleStationCountChange(stationCount + 1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Label>Charging Station Serial Numbers</Label>
+              {stations.map((station, index) => (
+                <div key={index} className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:space-x-2">
+                  <Input
+                    placeholder={`Serial number for station ${index + 1} (e.g., SN-12345)`}
+                    value={station.serialNumber}
+                    onChange={(e) => handleSerialNumberChange(index, e.target.value)}
+                    className="w-full"
+                  />
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => validateStationSerialNumber(index)}
+                      className="whitespace-nowrap"
+                    >
+                      Validate
+                    </Button>
+                    {station.isValid && (
+                      <div className="flex items-center text-sm font-medium text-green-600">
+                        <Check className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Note: Each charging station requires a valid serial number starting with "SN-".
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+        )}
+
+        {currentStep === "customer" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  value={customer.firstName}
+                  onChange={handleCustomerChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  value={customer.lastName}
+                  onChange={handleCustomerChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={customer.email}
+                onChange={handleCustomerChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={customer.phone}
+                onChange={handleCustomerChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input id="address" name="address" value={customer.address} onChange={handleCustomerChange} required />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input id="city" name="city" value={customer.city} onChange={handleCustomerChange} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input id="state" name="state" value={customer.state} onChange={handleCustomerChange} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zipCode">Zip Code</Label>
+                <Input id="zipCode" name="zipCode" value={customer.zipCode} onChange={handleCustomerChange} required />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentStep === "review" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium">Order Summary</h3>
+              <div className="mt-4 rounded-md border p-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Order Type:</span>
+                    <span className="capitalize">{orderType}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Number of Charging Stations:</span>
+                    <span>{stationCount}</span>
+                  </div>
+                  {orderType === "software" && selectedSoftware && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Software Package:</span>
+                        <span>{softwarePackages.find((sw) => sw.id === selectedSoftware)?.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Software Term:</span>
+                        <span>
+                          {softwareTerm} {Number.parseInt(softwareTerm) === 1 ? "Year" : "Years"}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {orderType === "bundle" && selectedBundle && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Bundle Package:</span>
+                        <span>{bundles.find((b) => b.id === selectedBundle)?.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Software Term:</span>
+                        <span>
+                          {softwareTerm} {Number.parseInt(softwareTerm) === 1 ? "Year" : "Years"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Warranty Term:</span>
+                        <span>
+                          {warrantyTerm} {Number.parseInt(warrantyTerm) === 1 ? "Year" : "Years"}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="pt-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Price Per Station:</span>
+                      <span>${calculateTotal().pricePerStation}</span>
+                    </div>
+                    <div className="flex justify-between font-bold border-t mt-2 pt-2">
+                      <span>Total Amount Due:</span>
+                      <span>${calculateTotal().total}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Alert className="bg-blue-50 border-blue-200 text-blue-800">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-700">
+                This portal is only for activating licenses and associating them with charging station serial numbers.
+                The total amount shown is what you owe to the supplier. You are responsible for your own client
+                invoicing and payment processing.
+              </AlertDescription>
+            </Alert>
+
+            <div>
+              <h3 className="text-lg font-medium">Customer Information</h3>
+              <div className="mt-4 rounded-md border p-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Name:</span>
+                    <span>
+                      {customer.firstName} {customer.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Email:</span>
+                    <span>{customer.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Phone:</span>
+                    <span>{customer.phone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Address:</span>
+                    <span>
+                      {customer.address}, {customer.city}, {customer.state} {customer.zipCode}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium">Charging Stations</h3>
+              <div className="mt-4 rounded-md border p-4">
+                <div className="space-y-2">
+                  {stations.map((station, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span className="font-medium">Station {index + 1}:</span>
+                      <span>{station.serialNumber}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentStep === "licenses" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium">License Keys</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Below are the unique license keys for each charging station. Please save this information.
+              </p>
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[600px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Station</TableHead>
+                      <TableHead>Serial Number</TableHead>
+                      <TableHead>Software License Key</TableHead>
+                      {orderType === "bundle" && <TableHead>Warranty License Key</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stations.map((station, index) => (
+                      <TableRow key={index}>
+                        <TableCell>Station {index + 1}</TableCell>
+                        <TableCell>{station.serialNumber}</TableCell>
+                        <TableCell className="font-mono text-xs">{station.softwareLicenseKey}</TableCell>
+                        {orderType === "bundle" && (
+                          <TableCell className="font-mono text-xs">{station.warrantyLicenseKey}</TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium">Order Summary</h3>
+              <div className="mt-4 rounded-md border p-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Order Type:</span>
+                    <span className="capitalize">{orderType}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium">Number of Charging Stations:</span>
+                    <span>{stationCount}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t mt-2 pt-2">
+                    <span>Total Amount Due:</span>
+                    <span>${calculateTotal().total}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Please save or print this page for your records. You will need these license keys to activate the
+                software and warranty for each charging station.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        {currentStep !== "product" && (
+          <Button variant="outline" onClick={prevStep}>
+            Back
+          </Button>
+        )}
+        {currentStep === "licenses" ? (
+          <Button onClick={handleSubmit}>Complete Order</Button>
+        ) : (
+          <Button
+            onClick={nextStep}
+            disabled={
+              currentStep === "product" &&
+              ((orderType === "software" && !selectedSoftware) || (orderType === "bundle" && !selectedBundle))
+            }
+          >
+            Next
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  )
+}
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
