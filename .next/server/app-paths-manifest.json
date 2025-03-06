@@ -1,11 +1,4 @@
 {
-  "/page": "app/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/customers/edit/[id]/page": "app/dashboard/customers/edit/[id]/page.js",
-  "/dashboard/admin/settings/page": "app/dashboard/admin/settings/page.js",
-  "/dashboard/admin/invite/page": "app/dashboard/admin/invite/page.js",
-  "/dashboard/admin/users/page": "app/dashboard/admin/users/page.js",
-  "/dashboard/customers/page": "app/dashboard/customers/page.js",
-  "/dashboard/orders/page": "app/dashboard/orders/page.js",
   "/dashboard/new-order/page": "app/dashboard/new-order/page.js"
 }

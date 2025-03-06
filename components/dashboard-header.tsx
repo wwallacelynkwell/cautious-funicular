@@ -7,6 +7,7 @@ import { Logo } from "@/components/logo"
 import { LogOut, User } from "lucide-react"
 import { MobileNav } from "@/components/mobile-nav"
 import { CommandMenu } from "@/components/command-menu"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()
@@ -28,6 +29,7 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
+          <ThemeToggle />
           <div className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">{user?.name}</span>

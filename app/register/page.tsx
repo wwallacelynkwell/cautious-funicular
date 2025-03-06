@@ -1,5 +1,6 @@
 import { RegisterForm } from "@/components/register-form"
 import { Logo } from "@/components/logo"
+import { Suspense } from "react"
 
 export default function RegisterPage() {
   return (
@@ -12,7 +13,9 @@ export default function RegisterPage() {
             Complete your registration to access the reseller portal
           </p>
         </div>
-        <RegisterForm />
+        <Suspense fallback={<div className="text-center">Loading registration form...</div>}>
+          <RegisterForm />
+        </Suspense>
       </div>
     </div>
   )
