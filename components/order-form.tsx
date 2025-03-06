@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
@@ -12,11 +12,68 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { softwarePackages, bundles, validateSerialNumber, generateLicenseKey } from "@/lib/data"
-import { AlertCircle, Check, Plus, Minus } from "lucide-react"
+import { AlertCircle, Check, Plus, Minus, UserPlus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "@/lib/auth-provider"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+// Mock customers data
+const allCustomers = [
+  {
+    id: "CUST-001",
+    name: "John Doe",
+    email: "john.doe@example.com",
+    phone: "(555) 123-4567",
+    address: "123 Main St, Anytown, CA 12345",
+    orders: ["ORD-001", "ORD-003", "ORD-005"],
+    lastOrder: "2023-05-15",
+    userId: "2", // Belongs to reseller1
+  },
+  {
+    id: "CUST-002",
+    name: "Jane Smith",
+    email: "jane.smith@example.com",
+    phone: "(555) 234-5678",
+    address: "456 Oak Ave, Somewhere, NY 67890",
+    orders: ["ORD-002"],
+    lastOrder: "2023-05-16",
+    userId: "2", // Belongs to reseller1
+  },
+  {
+    id: "CUST-003",
+    name: "Robert Johnson",
+    email: "robert.johnson@example.com",
+    phone: "(555) 345-6789",
+    address: "789 Pine Rd, Nowhere, TX 54321",
+    orders: ["ORD-004"],
+    lastOrder: "2023-05-17",
+    userId: "3", // Belongs to reseller2
+  },
+  {
+    id: "CUST-004",
+    name: "Emily Davis",
+    email: "emily.davis@example.com",
+    phone: "(555) 456-7890",
+    address: "321 Cedar Ln, Elsewhere, FL 09876",
+    orders: [],
+    lastOrder: "",
+    userId: "3", // Belongs to reseller2
+  },
+  {
+    id: "CUST-005",
+    name: "Michael Wilson",
+    email: "michael.wilson@example.com",
+    phone: "(555) 567-8901",
+    address: "654 Birch Blvd, Anywhere, WA 13579",
+    orders: ["ORD-006", "ORD-007"],
+    lastOrder: "2023-05-19",
+    userId: "2", // Belongs to reseller1
+  },
+]
 
 type OrderType = "software" | "bundle"
 type OrderStep = "product" | "stations" | "customer" | "review" | "licenses"
+type CustomerSelectionType = "existing" | "new"
 
 interface Station {
   serialNumber: string
@@ -28,6 +85,7 @@ interface Station {
 export function OrderForm() {
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useAuth()
 
   // Order state
   const [orderType, setOrderType] = useState<OrderType>("software")
@@ -38,6 +96,13 @@ export function OrderForm() {
   const [warrantyTerm, setWarrantyTerm] = useState("1")
   const [stationCount, setStationCount] = useState(1)
   const [stations, setStations] = useState<Station[]>([{ serialNumber: "", isValid: false }])
+
+  // Customer selection
+  const [customerSelectionType, setCustomerSelectionType] = useState<CustomerSelectionType>("existing")
+  const [selectedCustomerId, setSelectedCustomerId] = useState("")
+
+  // Filter customers based on current user
+  const userCustomers = allCustomers.filter((customer) => customer.userId === user?.id)
 
   // Customer information
   const [customer, setCustomer] = useState({
@@ -50,6 +115,27 @@ export function OrderForm() {
     state: "",
     zipCode: "",
   })
+
+  // Load customer data if existing customer is selected
+  useEffect(() => {
+    if (customerSelectionType === "existing" && selectedCustomerId) {
+      const selectedCustomer = userCustomers.find((c) => c.id === selectedCustomerId)
+      if (selectedCustomer) {
+        // Parse address into components
+        const addressParts = selectedCustomer.address.split(", ")
+        setCustomer({
+          firstName: selectedCustomer.name.split(" ")[0],
+          lastName: selectedCustomer.name.split(" ").slice(1).join(" "),
+          email: selectedCustomer.email,
+          phone: selectedCustomer.phone,
+          address: addressParts[0],
+          city: addressParts[1],
+          state: addressParts[2].split(" ")[0],
+          zipCode: addressParts[2].split(" ")[1],
+        })
+      }
+    }
+  }, [customerSelectionType, selectedCustomerId, userCustomers])
 
   const handleStationCountChange = (count: number) => {
     if (count < 1) return
@@ -138,6 +224,37 @@ export function OrderForm() {
       }
       setCurrentStep("customer")
     } else if (currentStep === "customer") {
+      // Validate customer information
+      if (customerSelectionType === "existing" && !selectedCustomerId) {
+        toast({
+          title: "Customer Required",
+          description: "Please select an existing customer or create a new one.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (customerSelectionType === "new") {
+        // Validate new customer fields
+        if (
+          !customer.firstName ||
+          !customer.lastName ||
+          !customer.email ||
+          !customer.phone ||
+          !customer.address ||
+          !customer.city ||
+          !customer.state ||
+          !customer.zipCode
+        ) {
+          toast({
+            title: "Missing Information",
+            description: "Please fill in all customer information fields.",
+            variant: "destructive",
+          })
+          return
+        }
+      }
+
       setCurrentStep("review")
     } else if (currentStep === "review") {
       generateLicenseKeys()
@@ -159,6 +276,7 @@ export function OrderForm() {
 
   const handleSubmit = () => {
     // In a real application, this would submit the order to your backend
+    // and associate it with the current user and customer
     toast({
       title: "Order Submitted",
       description: "Your order has been successfully submitted.",
@@ -191,11 +309,17 @@ export function OrderForm() {
     }
   }
 
+  const handleCreateNewCustomer = () => {
+    router.push("/dashboard/customers/new")
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Create New Order</CardTitle>
-        <CardDescription>Select products, enter station information, and collect customer details</CardDescription>
+        <CardDescription>
+          Creating order as: <span className="font-medium">{user?.name}</span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {currentStep === "product" && (
@@ -389,68 +513,168 @@ export function OrderForm() {
 
         {currentStep === "customer" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  value={customer.firstName}
-                  onChange={handleCustomerChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  value={customer.lastName}
-                  onChange={handleCustomerChange}
-                  required
-                />
-              </div>
+            <div className="space-y-4">
+              <Label>Customer Selection</Label>
+              <RadioGroup
+                value={customerSelectionType}
+                onValueChange={(value) => setCustomerSelectionType(value as CustomerSelectionType)}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+              >
+                <div>
+                  <RadioGroupItem value="existing" id="existing" className="peer sr-only" />
+                  <Label
+                    htmlFor="existing"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span>Existing Customer</span>
+                  </Label>
+                </div>
+                <div>
+                  <RadioGroupItem value="new" id="new" className="peer sr-only" />
+                  <Label
+                    htmlFor="new"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span>New Customer</span>
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={customer.email}
-                onChange={handleCustomerChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                value={customer.phone}
-                onChange={handleCustomerChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input id="address" name="address" value={customer.address} onChange={handleCustomerChange} required />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" value={customer.city} onChange={handleCustomerChange} required />
+
+            {customerSelectionType === "existing" && (
+              <div className="space-y-4">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="customer-select">Select Customer</Label>
+                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                      <SelectTrigger id="customer-select">
+                        <SelectValue placeholder="Choose a customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {userCustomers.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No customers found
+                          </SelectItem>
+                        ) : (
+                          userCustomers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name} - {customer.email}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="button" onClick={handleCreateNewCustomer} className="flex items-center gap-1">
+                    <UserPlus className="h-4 w-4" />
+                    <span>Create New</span>
+                  </Button>
+                </div>
+
+                {selectedCustomerId && (
+                  <div className="rounded-md border p-4 mt-4">
+                    <h3 className="font-medium mb-2">Customer Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Name</p>
+                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Email</p>
+                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Address</p>
+                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.address}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" value={customer.state} onChange={handleCustomerChange} required />
+            )}
+
+            {customerSelectionType === "new" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      value={customer.firstName}
+                      onChange={handleCustomerChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      value={customer.lastName}
+                      onChange={handleCustomerChange}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={customer.email}
+                    onChange={handleCustomerChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={customer.phone}
+                    onChange={handleCustomerChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    value={customer.address}
+                    onChange={handleCustomerChange}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" name="city" value={customer.city} onChange={handleCustomerChange} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Input id="state" name="state" value={customer.state} onChange={handleCustomerChange} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zipCode">Zip Code</Label>
+                    <Input
+                      id="zipCode"
+                      name="zipCode"
+                      value={customer.zipCode}
+                      onChange={handleCustomerChange}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">Zip Code</Label>
-                <Input id="zipCode" name="zipCode" value={customer.zipCode} onChange={handleCustomerChange} required />
-              </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -528,26 +752,50 @@ export function OrderForm() {
               <h3 className="text-lg font-medium">Customer Information</h3>
               <div className="mt-4 rounded-md border p-4">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Name:</span>
-                    <span>
-                      {customer.firstName} {customer.lastName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Email:</span>
-                    <span>{customer.email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Phone:</span>
-                    <span>{customer.phone}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Address:</span>
-                    <span>
-                      {customer.address}, {customer.city}, {customer.state} {customer.zipCode}
-                    </span>
-                  </div>
+                  {customerSelectionType === "existing" && selectedCustomerId && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Customer:</span>
+                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Email:</span>
+                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Phone:</span>
+                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Address:</span>
+                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.address}</span>
+                      </div>
+                    </>
+                  )}
+                  {customerSelectionType === "new" && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Name:</span>
+                        <span>
+                          {customer.firstName} {customer.lastName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Email:</span>
+                        <span>{customer.email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Phone:</span>
+                        <span>{customer.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Address:</span>
+                        <span>
+                          {customer.address}, {customer.city}, {customer.state} {customer.zipCode}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -654,6 +902,4 @@ export function OrderForm() {
     </Card>
   )
 }
-
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 

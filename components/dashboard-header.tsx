@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
 import { LogOut, User } from "lucide-react"
 import { MobileNav } from "@/components/mobile-nav"
+import { CommandMenu } from "@/components/command-menu"
 
 export function DashboardHeader() {
   const { user, logout } = useAuth()
@@ -21,6 +22,11 @@ export function DashboardHeader() {
             <span className="font-bold text-sm md:text-base">License Portal</span>
           </Link>
         </div>
+
+        <div className="flex-1 mx-4 hidden md:block">
+          <CommandMenu />
+        </div>
+
         <div className="flex items-center gap-2 md:gap-4">
           <div className="flex items-center gap-2">
             <User className="h-4 w-4" />

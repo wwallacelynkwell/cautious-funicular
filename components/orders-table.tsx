@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { MoreHorizontal, Eye } from "lucide-react"
+import { useAuth } from "@/lib/auth-provider"
 
 // Mock orders data
 const orders = [
@@ -18,6 +19,7 @@ const orders = [
     stations: 3,
     status: "Completed",
     total: "$599.97",
+    userId: "2", // Belongs to reseller1
   },
   {
     id: "ORD-002",
@@ -28,6 +30,7 @@ const orders = [
     stations: 5,
     status: "Completed",
     total: "$2,149.95",
+    userId: "2", // Belongs to reseller1
   },
   {
     id: "ORD-003",
@@ -38,6 +41,7 @@ const orders = [
     stations: 2,
     status: "Pending",
     total: "$899.98",
+    userId: "3", // Belongs to reseller2
   },
   {
     id: "ORD-004",
@@ -48,6 +52,7 @@ const orders = [
     stations: 10,
     status: "Completed",
     total: "$4,999.90",
+    userId: "3", // Belongs to reseller2
   },
   {
     id: "ORD-005",
@@ -58,12 +63,18 @@ const orders = [
     stations: 8,
     status: "Pending",
     total: "$5,039.92",
+    userId: "2", // Belongs to reseller1
   },
 ]
 
 export function OrdersTable() {
+  const { user, isAdmin } = useAuth()
   const [selectedOrder, setSelectedOrder] = useState<(typeof orders)[0] | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  // Filter orders based on user role
+  // Admin can see all orders, resellers can only see their own
+  const filteredOrders = isAdmin ? orders : orders.filter((order) => order.userId === user?.id)
 
   const viewOrderDetails = (order: (typeof orders)[0]) => {
     setSelectedOrder(order)
@@ -88,42 +99,50 @@ export function OrdersTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-medium">{order.id}</TableCell>
-                <TableCell>{order.date}</TableCell>
-                <TableCell>{order.customer}</TableCell>
-                <TableCell>{order.type}</TableCell>
-                <TableCell>{order.product}</TableCell>
-                <TableCell>{order.stations}</TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      order.status === "Completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {order.status}
-                  </span>
-                </TableCell>
-                <TableCell>{order.total}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => viewOrderDetails(order)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {filteredOrders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  No orders found
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">{order.id}</TableCell>
+                  <TableCell>{order.date}</TableCell>
+                  <TableCell>{order.customer}</TableCell>
+                  <TableCell>{order.type}</TableCell>
+                  <TableCell>{order.product}</TableCell>
+                  <TableCell>{order.stations}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        order.status === "Completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>{order.total}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => viewOrderDetails(order)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

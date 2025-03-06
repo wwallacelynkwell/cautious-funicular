@@ -5,34 +5,59 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Menu, X, Home, Package, ShoppingCart, Users } from "lucide-react"
-
-const navItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "New Order",
-    href: "/dashboard/new-order",
-    icon: ShoppingCart,
-  },
-  {
-    title: "Orders",
-    href: "/dashboard/orders",
-    icon: Package,
-  },
-  {
-    title: "Customers",
-    href: "/dashboard/customers",
-    icon: Users,
-  },
-]
+import { Menu, X, Home, Package, ShoppingCart, Users, Settings, UserPlus } from "lucide-react"
+import { useAuth } from "@/lib/auth-provider"
 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const { isAdmin } = useAuth()
+
+  // Common navigation items for all users
+  const commonNavItems = [
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: Home,
+    },
+    {
+      title: "New Order",
+      href: "/dashboard/new-order",
+      icon: ShoppingCart,
+    },
+    {
+      title: "Orders",
+      href: "/dashboard/orders",
+      icon: Package,
+    },
+    {
+      title: "Customers",
+      href: "/dashboard/customers",
+      icon: Users,
+    },
+  ]
+
+  // Admin-only navigation items
+  const adminNavItems = [
+    {
+      title: "User Management",
+      href: "/dashboard/admin/users",
+      icon: Users,
+    },
+    {
+      title: "Invite Users",
+      href: "/dashboard/admin/invite",
+      icon: UserPlus,
+    },
+    {
+      title: "Settings",
+      href: "/dashboard/admin/settings",
+      icon: Settings,
+    },
+  ]
+
+  // Combine navigation items based on user role
+  const navItems = isAdmin ? [...commonNavItems, ...adminNavItems] : commonNavItems
 
   return (
     <div className="lg:hidden">
