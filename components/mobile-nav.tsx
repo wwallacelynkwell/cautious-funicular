@@ -1,38 +1,54 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { Menu, X, Home, Package, ShoppingCart, Users, Settings, UserPlus } from "lucide-react"
-import { useAuth } from "@/lib/auth-provider"
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import {
+  Menu,
+  Home,
+  Package,
+  ShoppingCart,
+  Users,
+  Settings,
+  UserPlus,
+} from 'lucide-react'
+import { useAuth } from '@/lib/auth-provider'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from '@/components/ui/sheet'
+import { useState } from 'react'
 
 export function MobileNav() {
-  const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const { isAdmin } = useAuth()
+  const [open, setOpen] = useState(false)
 
   // Common navigation items for all users
   const commonNavItems = [
     {
-      title: "Dashboard",
-      href: "/dashboard",
+      title: 'Dashboard',
+      href: '/dashboard',
       icon: Home,
     },
     {
-      title: "New Order",
-      href: "/dashboard/new-order",
+      title: 'New Order',
+      href: '/dashboard/new-order',
       icon: ShoppingCart,
     },
     {
-      title: "Orders",
-      href: "/dashboard/orders",
+      title: 'Orders',
+      href: '/dashboard/orders',
       icon: Package,
     },
     {
-      title: "Customers",
-      href: "/dashboard/customers",
+      title: 'Customers',
+      href: '/dashboard/customers',
       icon: Users,
     },
   ]
@@ -40,63 +56,73 @@ export function MobileNav() {
   // Admin-only navigation items
   const adminNavItems = [
     {
-      title: "User Management",
-      href: "/dashboard/admin/users",
+      title: 'User Management',
+      href: '/dashboard/admin/users',
       icon: Users,
     },
     {
-      title: "Invite Users",
-      href: "/dashboard/admin/invite",
+      title: 'Invite Users',
+      href: '/dashboard/admin/invite',
       icon: UserPlus,
     },
     {
-      title: "Settings",
-      href: "/dashboard/admin/settings",
+      title: 'Settings',
+      href: '/dashboard/admin/settings',
       icon: Settings,
     },
   ]
 
   // Combine navigation items based on user role
-  const navItems = isAdmin ? [...commonNavItems, ...adminNavItems] : commonNavItems
+  const navItems = isAdmin
+    ? [...commonNavItems, ...adminNavItems]
+    : commonNavItems
 
   return (
-    <div className="lg:hidden">
-      <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Open menu">
-        <Menu className="h-5 w-5" />
-      </Button>
-
-      {/* Mobile menu overlay */}
-      {open && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          {/* Stop propagation to prevent closing when clicking the menu itself */}
-          <div
-            className="fixed inset-y-0 left-0 z-50 w-3/4 max-w-sm bg-background p-6 shadow-lg animate-in slide-in-from-left"
-            onClick={(e) => e.stopPropagation()}
+    <div className='lg:hidden'>
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+      >
+        <SheetTrigger asChild>
+          <Button
+            variant='ghost'
+            size='icon'
+            aria-label='Open menu'
           >
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-lg font-semibold">Navigation</h2>
-              <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-
-            <nav className="grid gap-2">
+            <Menu className='h-5 w-5' />
+          </Button>
+        </SheetTrigger>
+        <SheetContent
+          side='left'
+          className='w-[80%] max-w-sm p-0'
+        >
+          <SheetHeader className='p-4 border-b'>
+            <SheetTitle>Navigation</SheetTitle>
+          </SheetHeader>
+          <div className='py-4'>
+            <nav className='px-2 space-y-1'>
               {navItems.map((item) => (
-                <Link key={item.href} href={item.href} onClick={() => setOpen(false)}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                >
                   <Button
-                    variant="ghost"
-                    className={cn("flex w-full justify-start gap-2", pathname === item.href && "bg-muted font-medium")}
+                    variant='ghost'
+                    className={cn(
+                      'w-full justify-start gap-2 font-normal',
+                      pathname === item.href && 'bg-accent font-medium'
+                    )}
                   >
-                    <item.icon className="h-4 w-4" />
+                    <item.icon className='h-4 w-4' />
                     {item.title}
                   </Button>
                 </Link>
               ))}
             </nav>
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
-

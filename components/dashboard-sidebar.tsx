@@ -14,6 +14,7 @@ import {
   BarChart3,
   FileText,
   HelpCircle,
+  ChevronDown,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-provider'
 import {
@@ -21,12 +22,23 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useMediaQuery } from '@/hooks/use-media-query'
 
 export function DashboardSidebar() {
   const pathname = usePathname()
   const { isAdmin } = useAuth()
   const [openSection, setOpenSection] = useState<string | null>('main')
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  // Reset open sections when switching between mobile and desktop
+  useEffect(() => {
+    if (!isDesktop) {
+      setOpenSection(null)
+    } else {
+      setOpenSection('main')
+    }
+  }, [isDesktop])
 
   // Common navigation items for all users
   const commonNavItems = [
@@ -117,7 +129,7 @@ export function DashboardSidebar() {
   }
 
   return (
-    <div className='lg:block w-full lg:w-64 border-r bg-sidebar-background text-sidebar-foreground'>
+    <div className='hidden lg:block w-full lg:w-64 border-r bg-background'>
       <div className='flex h-full flex-col py-4'>
         <div className='px-4 py-2'>
           <h2 className='text-lg font-semibold tracking-tight'>Navigation</h2>
@@ -138,7 +150,7 @@ export function DashboardSidebar() {
                       className={cn(
                         'flex w-full justify-between items-center gap-2 mb-1',
                         item.items.some((subItem) => isActive(subItem.href)) &&
-                          'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                          'bg-accent text-accent-foreground font-medium'
                       )}
                     >
                       <span className='flex items-center gap-2'>
@@ -150,25 +162,14 @@ export function DashboardSidebar() {
                         )}
                         {item.title}
                       </span>
-                      <svg
-                        xmlns='http://www.w3.org/2000/svg'
-                        width='24'
-                        height='24'
-                        viewBox='0 0 24 24'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='2'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
+                      <ChevronDown
                         className={cn(
                           'h-4 w-4 transition-transform',
                           openSection === item.section
                             ? 'transform rotate-180'
                             : ''
                         )}
-                      >
-                        <polyline points='6 9 12 15 18 9'></polyline>
-                      </svg>
+                      />
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className='pl-4 space-y-1'>
@@ -182,7 +183,7 @@ export function DashboardSidebar() {
                           className={cn(
                             'flex w-full justify-start gap-2 py-1.5',
                             isActive(subItem.href) &&
-                              'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                              'bg-accent text-accent-foreground font-medium'
                           )}
                         >
                           <subItem.icon className='h-4 w-4' />
@@ -202,7 +203,7 @@ export function DashboardSidebar() {
                     className={cn(
                       'flex w-full justify-start gap-2',
                       isActive(item.href) &&
-                        'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                        'bg-accent text-accent-foreground font-medium'
                     )}
                   >
                     <item.icon className='h-4 w-4' />
