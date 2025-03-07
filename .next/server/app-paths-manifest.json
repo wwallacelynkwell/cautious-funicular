@@ -1,0 +1,12 @@
+{
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/orders/page": "app/dashboard/orders/page.js",
+  "/dashboard/customers/page": "app/dashboard/customers/page.js",
+  "/dashboard/reports/page": "app/dashboard/reports/page.js",
+  "/dashboard/docs/page": "app/dashboard/docs/page.js",
+  "/dashboard/support/page": "app/dashboard/support/page.js",
+  "/dashboard/admin/settings/page": "app/dashboard/admin/settings/page.js",
+  "/dashboard/admin/invite/page": "app/dashboard/admin/invite/page.js",
+  "/dashboard/admin/users/page": "app/dashboard/admin/users/page.js"
+}

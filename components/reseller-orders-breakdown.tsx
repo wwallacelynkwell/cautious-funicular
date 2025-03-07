@@ -303,7 +303,9 @@ export function ResellerOrdersBreakdown() {
                             {getCustomerById(order.customerId)?.name ||
                               'Unknown'}
                           </TableCell>
-                          <TableCell>{order.items.join(', ')}</TableCell>
+                          <TableCell>
+                            {order.items?.join(', ') || 'N/A'}
+                          </TableCell>
                           <TableCell>
                             <span
                               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${

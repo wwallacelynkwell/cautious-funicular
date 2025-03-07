@@ -258,7 +258,7 @@ export function OrderDetailsDialog({
                       </div>
                       <div>
                         <span className='text-muted-foreground'>Items:</span>{' '}
-                        <span>{order.items.length}</span>
+                        <span>{order.items?.length || 0}</span>
                       </div>
                       <div>
                         <span className='text-muted-foreground'>Order ID:</span>{' '}

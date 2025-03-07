@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Search, Filter, X, Calendar, AlertCircle } from 'lucide-react'
 import { getCustomerOrders, config, getResellerById } from '@/app/api/database'
+import { cn } from '@/lib/utils'
 
 interface CustomerFilterProps {
   customers: string[]

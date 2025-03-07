@@ -77,7 +77,7 @@ export default function ReportsPage() {
 
     // Calculate total licenses, revenue, and average order value
     const totalItems = orders.reduce(
-      (sum, order) => sum + order.items.length,
+      (sum, order) => sum + (order.items?.length || 0),
       0
     )
     const totalRev = orders.reduce((sum, order) => sum + order.amount, 0)
@@ -194,13 +194,15 @@ export default function ReportsPage() {
     let totalItems = 0
 
     orders.forEach((order) => {
-      order.items.forEach((itemId: string) => {
-        if (!itemCounts[itemId]) {
-          itemCounts[itemId] = 0
-        }
-        itemCounts[itemId]++
-        totalItems++
-      })
+      if (order.items) {
+        order.items.forEach((itemId: string) => {
+          if (!itemCounts[itemId]) {
+            itemCounts[itemId] = 0
+          }
+          itemCounts[itemId]++
+          totalItems++
+        })
+      }
     })
 
     // Group by product type
