@@ -118,8 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // Find the user with matching credentials
+      // Make username comparison case-insensitive by converting both to lowercase
       const foundUser = MOCK_USERS.find(
-        (u) => u.username === username && u.password === password
+        (u) =>
+          u.username.toLowerCase() === username.toLowerCase() &&
+          u.password === password
       )
 
       if (!foundUser) {
