@@ -1,41 +1,48 @@
-"use client"
+'use client'
 
-import type React from "react"
+import type React from 'react'
 
-import { createContext, useContext, useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { createContext, useContext, useState, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { resellers } from '@/app/api/database'
+import Cookies from 'js-cookie'
 
-// Mock user data - in a real app, this would come from your backend
+// Convert resellers data to users format
 const MOCK_USERS = [
-  { id: "1", username: "admin", password: "admin123", name: "Admin User", role: "admin", email: "admin@example.com" },
   {
-    id: "2",
-    username: "reseller1",
-    password: "password1",
-    name: "Reseller One",
-    role: "reseller",
-    email: "reseller1@example.com",
+    id: 'ADMIN-001',
+    username: 'admin',
+    password: 'admin123',
+    name: 'Admin User',
+    role: 'admin' as const,
+    email: 'admin@example.com',
   },
-  {
-    id: "3",
-    username: "reseller2",
-    password: "password2",
-    name: "Reseller Two",
-    role: "reseller",
-    email: "reseller2@example.com",
-  },
+  ...resellers.map((reseller) => ({
+    id: reseller.id,
+    username: reseller.name.toLowerCase().replace(/\s+/g, ''),
+    password: 'password123',
+    name: reseller.name,
+    role: 'reseller' as const,
+    email: reseller.email,
+  })),
 ]
 
 // Mock invites data
 const MOCK_INVITES = [
-  { id: "inv1", email: "pending@example.com", token: "abc123", createdAt: "2023-05-01", status: "pending" },
+  {
+    id: 'inv1',
+    email: 'pending@example.com',
+    token: 'abc123',
+    createdAt: '2023-05-01',
+    status: 'pending' as const,
+  },
 ]
 
 interface User {
   id: string
   username: string
   name: string
-  role: "admin" | "reseller"
+  role: 'admin' | 'reseller'
   email: string
 }
 
@@ -44,7 +51,7 @@ interface Invite {
   email: string
   token: string
   createdAt: string
-  status: "pending" | "accepted"
+  status: 'pending' | 'accepted'
 }
 
 interface AuthContextType {
@@ -56,23 +63,34 @@ interface AuthContextType {
   inviteUser: (email: string) => Promise<void>
   getInvites: () => Invite[]
   getUsers: () => User[]
+  canAccessResource: (resourceUserId: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+// Cookie name for storing auth data
+const AUTH_COOKIE_NAME = 'auth_data'
+// Cookie expiration in days
+const COOKIE_EXPIRATION = 7
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [invites, setInvites] = useState<Invite[]>(MOCK_INVITES)
-  const [users, setUsers] = useState<User[]>(MOCK_USERS)
   const router = useRouter()
   const pathname = usePathname()
 
+  // Load user from cookie on initial load
   useEffect(() => {
-    // Check for stored user on initial load
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
+    const cookieData = Cookies.get(AUTH_COOKIE_NAME)
+    if (cookieData) {
+      try {
+        const userData = JSON.parse(cookieData)
+        setUser(userData)
+      } catch (error) {
+        console.error('Error parsing auth cookie:', error)
+        Cookies.remove(AUTH_COOKIE_NAME)
+      }
     }
     setIsLoading(false)
   }, [])
@@ -80,76 +98,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Redirect logic
     if (!isLoading) {
-      const isAuthPage = pathname === "/"
-      const isProtectedRoute = pathname?.startsWith("/dashboard")
-      const isAdminRoute = pathname?.startsWith("/dashboard/admin")
+      const isAuthPage = pathname === '/'
+      const isProtectedRoute = pathname?.startsWith('/dashboard')
+      const isAdminRoute = pathname?.startsWith('/dashboard/admin')
 
       if (user && isAuthPage) {
-        router.push("/dashboard")
+        router.push('/dashboard')
       } else if (!user && isProtectedRoute) {
-        router.push("/")
-      } else if (user && isAdminRoute && user.role !== "admin") {
+        router.push('/')
+      } else if (user && isAdminRoute && user.role !== 'admin') {
         // Redirect non-admin users trying to access admin routes
-        router.push("/dashboard")
+        router.push('/dashboard')
       }
     }
   }, [user, pathname, isLoading, router])
 
   const login = async (username: string, password: string) => {
-    // Simulate API call
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const foundUser = MOCK_USERS.find((u) => u.username === username && u.password === password)
+    setIsLoading(true)
 
-        if (foundUser) {
-          const { password, ...userWithoutPassword } = foundUser
-          setUser(userWithoutPassword)
-          localStorage.setItem("user", JSON.stringify(userWithoutPassword))
-          resolve()
-        } else {
-          reject(new Error("Invalid credentials"))
-        }
-      }, 1000)
-    })
+    try {
+      // Find the user with matching credentials
+      const foundUser = MOCK_USERS.find(
+        (u) => u.username === username && u.password === password
+      )
+
+      if (!foundUser) {
+        throw new Error('Invalid credentials')
+      }
+
+      // Remove password from user object
+      const { password: _, ...userWithoutPassword } = foundUser
+
+      // Set user state
+      setUser(userWithoutPassword)
+
+      // Store user in cookie
+      Cookies.set(AUTH_COOKIE_NAME, JSON.stringify(userWithoutPassword), {
+        expires: COOKIE_EXPIRATION,
+        sameSite: 'strict',
+      })
+
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("user")
-    router.push("/")
+    // Remove auth cookie
+    Cookies.remove(AUTH_COOKIE_NAME)
+    router.push('/')
   }
 
   const inviteUser = async (email: string) => {
-    // Simulate API call to invite a user
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        // Check if user already exists
-        const existingUser = MOCK_USERS.find((u) => u.email === email)
-        if (existingUser) {
-          reject(new Error("User with this email already exists"))
-          return
-        }
+    setIsLoading(true)
 
-        // Check if invite already exists
-        const existingInvite = invites.find((i) => i.email === email)
-        if (existingInvite) {
-          reject(new Error("Invite for this email already sent"))
-          return
-        }
+    try {
+      // Check if user already exists
+      const existingUser = MOCK_USERS.find((u) => u.email === email)
+      if (existingUser) {
+        throw new Error('User with this email already exists')
+      }
 
-        // Create new invite
-        const newInvite: Invite = {
-          id: `inv${invites.length + 1}`,
-          email,
-          token: Math.random().toString(36).substring(2, 15),
-          createdAt: new Date().toISOString(),
-          status: "pending",
-        }
+      // Check if invite already exists
+      const existingInvite = invites.find((i) => i.email === email)
+      if (existingInvite) {
+        throw new Error('Invite for this email already sent')
+      }
 
-        setInvites((prev) => [...prev, newInvite])
-        resolve()
-      }, 1000)
-    })
+      // Create new invite
+      const newInvite: Invite = {
+        id: `inv${invites.length + 1}`,
+        email,
+        token: Math.random().toString(36).substring(2, 15),
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+      }
+
+      setInvites((prev) => [...prev, newInvite])
+      return Promise.resolve()
+    } catch (error) {
+      return Promise.reject(error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const getInvites = () => {
@@ -158,10 +193,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getUsers = () => {
     // Return users without passwords
-    return users.map(({ password, ...user }: any) => user)
+    return MOCK_USERS.map(({ password, ...user }) => user)
   }
 
-  const isAdmin = user?.role === "admin"
+  // Function to check if the current user can access a resource
+  const canAccessResource = (resourceUserId: string) => {
+    if (!user) return false
+
+    // Admin can access all resources
+    if (user.role === 'admin') return true
+
+    // Resellers can only access their own resources
+    return user.id === resourceUserId
+  }
+
+  const isAdmin = user?.role === 'admin'
 
   return (
     <AuthContext.Provider
@@ -174,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         inviteUser,
         getInvites,
         getUsers,
+        canAccessResource,
       }}
     >
       {children}
@@ -184,8 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }
-

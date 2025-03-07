@@ -1,79 +1,51 @@
-"use client"
+'use client'
 
-import type React from "react"
+import type React from 'react'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { softwarePackages, bundles, validateSerialNumber, generateLicenseKey } from "@/lib/data"
-import { AlertCircle, Check, Plus, Minus, UserPlus } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuth } from "@/lib/auth-provider"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/use-toast'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  softwarePackages,
+  bundles,
+  validateSerialNumber,
+  generateLicenseKey,
+} from '@/app/api/database'
+import { AlertCircle, Check, Plus, Minus, UserPlus } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useAuth } from '@/lib/auth-provider'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { customers as allCustomers } from '@/app/api/database'
 
-// Mock customers data
-const allCustomers = [
-  {
-    id: "CUST-001",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "(555) 123-4567",
-    address: "123 Main St, Anytown, CA 12345",
-    orders: ["ORD-001", "ORD-003", "ORD-005"],
-    lastOrder: "2023-05-15",
-    userId: "2", // Belongs to reseller1
-  },
-  {
-    id: "CUST-002",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    phone: "(555) 234-5678",
-    address: "456 Oak Ave, Somewhere, NY 67890",
-    orders: ["ORD-002"],
-    lastOrder: "2023-05-16",
-    userId: "2", // Belongs to reseller1
-  },
-  {
-    id: "CUST-003",
-    name: "Robert Johnson",
-    email: "robert.johnson@example.com",
-    phone: "(555) 345-6789",
-    address: "789 Pine Rd, Nowhere, TX 54321",
-    orders: ["ORD-004"],
-    lastOrder: "2023-05-17",
-    userId: "3", // Belongs to reseller2
-  },
-  {
-    id: "CUST-004",
-    name: "Emily Davis",
-    email: "emily.davis@example.com",
-    phone: "(555) 456-7890",
-    address: "321 Cedar Ln, Elsewhere, FL 09876",
-    orders: [],
-    lastOrder: "",
-    userId: "3", // Belongs to reseller2
-  },
-  {
-    id: "CUST-005",
-    name: "Michael Wilson",
-    email: "michael.wilson@example.com",
-    phone: "(555) 567-8901",
-    address: "654 Birch Blvd, Anywhere, WA 13579",
-    orders: ["ORD-006", "ORD-007"],
-    lastOrder: "2023-05-19",
-    userId: "2", // Belongs to reseller1
-  },
-]
-
-type OrderType = "software" | "bundle"
-type OrderStep = "product" | "stations" | "customer" | "review" | "licenses"
-type CustomerSelectionType = "existing" | "new"
+type OrderType = 'software' | 'bundle'
+type OrderStep = 'product' | 'stations' | 'customer' | 'review' | 'licenses'
+type CustomerSelectionType = 'existing' | 'new'
 
 interface Station {
   serialNumber: string
@@ -88,50 +60,57 @@ export function OrderForm() {
   const { user } = useAuth()
 
   // Order state
-  const [orderType, setOrderType] = useState<OrderType>("software")
-  const [currentStep, setCurrentStep] = useState<OrderStep>("product")
-  const [selectedSoftware, setSelectedSoftware] = useState("")
-  const [selectedBundle, setSelectedBundle] = useState("")
-  const [softwareTerm, setSoftwareTerm] = useState("1")
-  const [warrantyTerm, setWarrantyTerm] = useState("1")
+  const [orderType, setOrderType] = useState<OrderType>('software')
+  const [currentStep, setCurrentStep] = useState<OrderStep>('product')
+  const [selectedSoftware, setSelectedSoftware] = useState('')
+  const [selectedBundle, setSelectedBundle] = useState('')
+  const [softwareTerm, setSoftwareTerm] = useState('1')
+  const [warrantyTerm, setWarrantyTerm] = useState('1')
   const [stationCount, setStationCount] = useState(1)
-  const [stations, setStations] = useState<Station[]>([{ serialNumber: "", isValid: false }])
+  const [stations, setStations] = useState<Station[]>([
+    { serialNumber: '', isValid: false },
+  ])
 
   // Customer selection
-  const [customerSelectionType, setCustomerSelectionType] = useState<CustomerSelectionType>("existing")
-  const [selectedCustomerId, setSelectedCustomerId] = useState("")
+  const [customerSelectionType, setCustomerSelectionType] =
+    useState<CustomerSelectionType>('existing')
+  const [selectedCustomerId, setSelectedCustomerId] = useState('')
 
   // Filter customers based on current user
-  const userCustomers = allCustomers.filter((customer) => customer.userId === user?.id)
+  const userCustomers = allCustomers.filter(
+    (customer) => customer.userId === user?.id
+  )
 
   // Customer information
   const [customer, setCustomer] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
   })
 
   // Load customer data if existing customer is selected
   useEffect(() => {
-    if (customerSelectionType === "existing" && selectedCustomerId) {
-      const selectedCustomer = userCustomers.find((c) => c.id === selectedCustomerId)
+    if (customerSelectionType === 'existing' && selectedCustomerId) {
+      const selectedCustomer = userCustomers.find(
+        (c) => c.id === selectedCustomerId
+      )
       if (selectedCustomer) {
         // Parse address into components
-        const addressParts = selectedCustomer.address.split(", ")
+        const addressParts = selectedCustomer.address?.split(', ') || []
         setCustomer({
-          firstName: selectedCustomer.name.split(" ")[0],
-          lastName: selectedCustomer.name.split(" ").slice(1).join(" "),
+          firstName: selectedCustomer.name.split(' ')[0],
+          lastName: selectedCustomer.name.split(' ').slice(1).join(' '),
           email: selectedCustomer.email,
-          phone: selectedCustomer.phone,
-          address: addressParts[0],
-          city: addressParts[1],
-          state: addressParts[2].split(" ")[0],
-          zipCode: addressParts[2].split(" ")[1],
+          phone: selectedCustomer.phone || '',
+          address: selectedCustomer.address || '',
+          city: addressParts[0] || '',
+          state: addressParts[1] || '',
+          zipCode: addressParts[2] || '',
         })
       }
     }
@@ -147,7 +126,7 @@ export function OrderForm() {
       // Add new stations
       const newStations = [...stations]
       for (let i = stations.length; i < count; i++) {
-        newStations.push({ serialNumber: "", isValid: false })
+        newStations.push({ serialNumber: '', isValid: false })
       }
       setStations(newStations)
     } else if (count < stations.length) {
@@ -188,11 +167,17 @@ export function OrderForm() {
 
   const generateLicenseKeys = () => {
     const updatedStations = stations.map((station) => {
-      const softwareLicenseKey = generateLicenseKey("software", station.serialNumber)
+      const softwareLicenseKey = generateLicenseKey(
+        'software',
+        station.serialNumber
+      )
       let warrantyLicenseKey
 
-      if (orderType === "bundle") {
-        warrantyLicenseKey = generateLicenseKey("warranty", station.serialNumber)
+      if (orderType === 'bundle') {
+        warrantyLicenseKey = generateLicenseKey(
+          'warranty',
+          station.serialNumber
+        )
       }
 
       return {
@@ -211,30 +196,31 @@ export function OrderForm() {
   }
 
   const nextStep = () => {
-    if (currentStep === "product") {
-      setCurrentStep("stations")
-    } else if (currentStep === "stations") {
+    if (currentStep === 'product') {
+      setCurrentStep('stations')
+    } else if (currentStep === 'stations') {
       if (!validateAllSerialNumbers()) {
         toast({
-          title: "Invalid Serial Numbers",
-          description: "Please ensure all serial numbers are valid.",
-          variant: "destructive",
+          title: 'Invalid Serial Numbers',
+          description: 'Please ensure all serial numbers are valid.',
+          variant: 'destructive',
         })
         return
       }
-      setCurrentStep("customer")
-    } else if (currentStep === "customer") {
+      setCurrentStep('customer')
+    } else if (currentStep === 'customer') {
       // Validate customer information
-      if (customerSelectionType === "existing" && !selectedCustomerId) {
+      if (customerSelectionType === 'existing' && !selectedCustomerId) {
         toast({
-          title: "Customer Required",
-          description: "Please select an existing customer or create a new one.",
-          variant: "destructive",
+          title: 'Customer Required',
+          description:
+            'Please select an existing customer or create a new one.',
+          variant: 'destructive',
         })
         return
       }
 
-      if (customerSelectionType === "new") {
+      if (customerSelectionType === 'new') {
         // Validate new customer fields
         if (
           !customer.firstName ||
@@ -247,30 +233,30 @@ export function OrderForm() {
           !customer.zipCode
         ) {
           toast({
-            title: "Missing Information",
-            description: "Please fill in all customer information fields.",
-            variant: "destructive",
+            title: 'Missing Information',
+            description: 'Please fill in all customer information fields.',
+            variant: 'destructive',
           })
           return
         }
       }
 
-      setCurrentStep("review")
-    } else if (currentStep === "review") {
+      setCurrentStep('review')
+    } else if (currentStep === 'review') {
       generateLicenseKeys()
-      setCurrentStep("licenses")
+      setCurrentStep('licenses')
     }
   }
 
   const prevStep = () => {
-    if (currentStep === "stations") {
-      setCurrentStep("product")
-    } else if (currentStep === "customer") {
-      setCurrentStep("stations")
-    } else if (currentStep === "review") {
-      setCurrentStep("customer")
-    } else if (currentStep === "licenses") {
-      setCurrentStep("review")
+    if (currentStep === 'stations') {
+      setCurrentStep('product')
+    } else if (currentStep === 'customer') {
+      setCurrentStep('stations')
+    } else if (currentStep === 'review') {
+      setCurrentStep('customer')
+    } else if (currentStep === 'licenses') {
+      setCurrentStep('review')
     }
   }
 
@@ -278,26 +264,30 @@ export function OrderForm() {
     // In a real application, this would submit the order to your backend
     // and associate it with the current user and customer
     toast({
-      title: "Order Submitted",
-      description: "Your order has been successfully submitted.",
+      title: 'Order Submitted',
+      description: 'Your order has been successfully submitted.',
     })
-    router.push("/dashboard/orders")
+    router.push('/dashboard/orders')
   }
 
   const calculateTotal = () => {
     let pricePerStation = 0
 
-    if (orderType === "software") {
+    if (orderType === 'software') {
       const software = softwarePackages.find((sw) => sw.id === selectedSoftware)
       if (software) {
-        pricePerStation = software.pricePerStation * Number.parseInt(softwareTerm)
+        pricePerStation =
+          software.pricePerStation * Number.parseInt(softwareTerm)
       }
-    } else if (orderType === "bundle") {
+    } else if (orderType === 'bundle') {
       const bundle = bundles.find((b) => b.id === selectedBundle)
       if (bundle) {
         // For bundles, we assume the price already includes both components for 1 year
         // and we multiply by the max term between software and warranty
-        const term = Math.max(Number.parseInt(softwareTerm), Number.parseInt(warrantyTerm))
+        const term = Math.max(
+          Number.parseInt(softwareTerm),
+          Number.parseInt(warrantyTerm)
+        )
         pricePerStation = bundle.pricePerStation * term
       }
     }
@@ -310,41 +300,49 @@ export function OrderForm() {
   }
 
   const handleCreateNewCustomer = () => {
-    router.push("/dashboard/customers/new")
+    router.push('/dashboard/customers/new')
   }
 
   return (
-    <Card className="w-full">
+    <Card className='w-full'>
       <CardHeader>
         <CardTitle>Create New Order</CardTitle>
         <CardDescription>
-          Creating order as: <span className="font-medium">{user?.name}</span>
+          Creating order as: <span className='font-medium'>{user?.name}</span>
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {currentStep === "product" && (
-          <div className="space-y-6">
-            <div className="space-y-4">
+        {currentStep === 'product' && (
+          <div className='space-y-6'>
+            <div className='space-y-4'>
               <Label>Order Type</Label>
               <RadioGroup
                 value={orderType}
                 onValueChange={(value) => setOrderType(value as OrderType)}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                className='grid grid-cols-1 sm:grid-cols-2 gap-4'
               >
                 <div>
-                  <RadioGroupItem value="software" id="software" className="peer sr-only" />
+                  <RadioGroupItem
+                    value='software'
+                    id='software'
+                    className='peer sr-only'
+                  />
                   <Label
-                    htmlFor="software"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                    htmlFor='software'
+                    className='flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
                   >
                     <span>Software Package</span>
                   </Label>
                 </div>
                 <div>
-                  <RadioGroupItem value="bundle" id="bundle" className="peer sr-only" />
+                  <RadioGroupItem
+                    value='bundle'
+                    id='bundle'
+                    className='peer sr-only'
+                  />
                   <Label
-                    htmlFor="bundle"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                    htmlFor='bundle'
+                    className='flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
                   >
                     <span>Bundle (Software + Warranty)</span>
                   </Label>
@@ -352,17 +350,23 @@ export function OrderForm() {
               </RadioGroup>
             </div>
 
-            {orderType === "software" && (
-              <div className="space-y-4">
+            {orderType === 'software' && (
+              <div className='space-y-4'>
                 <div>
-                  <Label htmlFor="software-package">Software Package</Label>
-                  <Select value={selectedSoftware} onValueChange={setSelectedSoftware}>
-                    <SelectTrigger id="software-package">
-                      <SelectValue placeholder="Select a software package" />
+                  <Label htmlFor='software-package'>Software Package</Label>
+                  <Select
+                    value={selectedSoftware}
+                    onValueChange={setSelectedSoftware}
+                  >
+                    <SelectTrigger id='software-package'>
+                      <SelectValue placeholder='Select a software package' />
                     </SelectTrigger>
                     <SelectContent>
                       {softwarePackages.map((software) => (
-                        <SelectItem key={software.id} value={software.id}>
+                        <SelectItem
+                          key={software.id}
+                          value={software.id}
+                        >
                           {software.name} - ${software.pricePerStation}/station
                         </SelectItem>
                       ))}
@@ -370,68 +374,87 @@ export function OrderForm() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="software-term">Term (Years)</Label>
-                  <Select value={softwareTerm} onValueChange={setSoftwareTerm}>
-                    <SelectTrigger id="software-term">
-                      <SelectValue placeholder="Select term length" />
+                  <Label htmlFor='software-term'>Term (Years)</Label>
+                  <Select
+                    value={softwareTerm}
+                    onValueChange={setSoftwareTerm}
+                  >
+                    <SelectTrigger id='software-term'>
+                      <SelectValue placeholder='Select term length' />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 Year</SelectItem>
-                      <SelectItem value="2">2 Years</SelectItem>
-                      <SelectItem value="3">3 Years</SelectItem>
-                      <SelectItem value="4">4 Years</SelectItem>
-                      <SelectItem value="5">5 Years</SelectItem>
+                      <SelectItem value='1'>1 Year</SelectItem>
+                      <SelectItem value='2'>2 Years</SelectItem>
+                      <SelectItem value='3'>3 Years</SelectItem>
+                      <SelectItem value='4'>4 Years</SelectItem>
+                      <SelectItem value='5'>5 Years</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             )}
 
-            {orderType === "bundle" && (
-              <div className="space-y-4">
+            {orderType === 'bundle' && (
+              <div className='space-y-4'>
                 <div>
-                  <Label htmlFor="bundle-package">Bundle Package</Label>
-                  <Select value={selectedBundle} onValueChange={setSelectedBundle}>
-                    <SelectTrigger id="bundle-package">
-                      <SelectValue placeholder="Select a bundle" />
+                  <Label htmlFor='bundle-package'>Bundle Package</Label>
+                  <Select
+                    value={selectedBundle}
+                    onValueChange={setSelectedBundle}
+                  >
+                    <SelectTrigger id='bundle-package'>
+                      <SelectValue placeholder='Select a bundle' />
                     </SelectTrigger>
                     <SelectContent>
                       {bundles.map((bundle) => (
-                        <SelectItem key={bundle.id} value={bundle.id}>
+                        <SelectItem
+                          key={bundle.id}
+                          value={bundle.id}
+                        >
                           {bundle.name} - ${bundle.pricePerStation}/station
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                   <div>
-                    <Label htmlFor="bundle-software-term">Software Term (Years)</Label>
-                    <Select value={softwareTerm} onValueChange={setSoftwareTerm}>
-                      <SelectTrigger id="bundle-software-term">
-                        <SelectValue placeholder="Select term length" />
+                    <Label htmlFor='bundle-software-term'>
+                      Software Term (Years)
+                    </Label>
+                    <Select
+                      value={softwareTerm}
+                      onValueChange={setSoftwareTerm}
+                    >
+                      <SelectTrigger id='bundle-software-term'>
+                        <SelectValue placeholder='Select term length' />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 Year</SelectItem>
-                        <SelectItem value="2">2 Years</SelectItem>
-                        <SelectItem value="3">3 Years</SelectItem>
-                        <SelectItem value="4">4 Years</SelectItem>
-                        <SelectItem value="5">5 Years</SelectItem>
+                        <SelectItem value='1'>1 Year</SelectItem>
+                        <SelectItem value='2'>2 Years</SelectItem>
+                        <SelectItem value='3'>3 Years</SelectItem>
+                        <SelectItem value='4'>4 Years</SelectItem>
+                        <SelectItem value='5'>5 Years</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="bundle-warranty-term">Warranty Term (Years)</Label>
-                    <Select value={warrantyTerm} onValueChange={setWarrantyTerm}>
-                      <SelectTrigger id="bundle-warranty-term">
-                        <SelectValue placeholder="Select term length" />
+                    <Label htmlFor='bundle-warranty-term'>
+                      Warranty Term (Years)
+                    </Label>
+                    <Select
+                      value={warrantyTerm}
+                      onValueChange={setWarrantyTerm}
+                    >
+                      <SelectTrigger id='bundle-warranty-term'>
+                        <SelectValue placeholder='Select term length' />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 Year</SelectItem>
-                        <SelectItem value="2">2 Years</SelectItem>
-                        <SelectItem value="3">3 Years</SelectItem>
-                        <SelectItem value="4">4 Years</SelectItem>
-                        <SelectItem value="5">5 Years</SelectItem>
+                        <SelectItem value='1'>1 Year</SelectItem>
+                        <SelectItem value='2'>2 Years</SelectItem>
+                        <SelectItem value='3'>3 Years</SelectItem>
+                        <SelectItem value='4'>4 Years</SelectItem>
+                        <SelectItem value='5'>5 Years</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -441,99 +464,121 @@ export function OrderForm() {
           </div>
         )}
 
-        {currentStep === "stations" && (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <Label htmlFor="station-count">Number of Charging Stations</Label>
-              <div className="flex items-center space-x-2">
+        {currentStep === 'stations' && (
+          <div className='space-y-6'>
+            <div className='space-y-4'>
+              <Label htmlFor='station-count'>Number of Charging Stations</Label>
+              <div className='flex items-center space-x-2'>
                 <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
+                  type='button'
+                  variant='outline'
+                  size='icon'
                   onClick={() => handleStationCountChange(stationCount - 1)}
                   disabled={stationCount <= 1}
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className='h-4 w-4' />
                 </Button>
                 <Input
-                  id="station-count"
-                  type="number"
-                  min="1"
+                  id='station-count'
+                  type='number'
+                  min='1'
                   value={stationCount}
-                  onChange={(e) => handleStationCountChange(Number.parseInt(e.target.value) || 1)}
-                  className="w-20 text-center"
+                  onChange={(e) =>
+                    handleStationCountChange(
+                      Number.parseInt(e.target.value) || 1
+                    )
+                  }
+                  className='w-20 text-center'
                 />
                 <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
+                  type='button'
+                  variant='outline'
+                  size='icon'
                   onClick={() => handleStationCountChange(stationCount + 1)}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className='h-4 w-4' />
                 </Button>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className='space-y-4'>
               <Label>Charging Station Serial Numbers</Label>
               {stations.map((station, index) => (
-                <div key={index} className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:space-x-2">
+                <div
+                  key={index}
+                  className='space-y-2 sm:space-y-0 sm:flex sm:items-center sm:space-x-2'
+                >
                   <Input
-                    placeholder={`Serial number for station ${index + 1} (e.g., SN-12345)`}
+                    placeholder={`Serial number for station ${
+                      index + 1
+                    } (e.g., SN-12345)`}
                     value={station.serialNumber}
-                    onChange={(e) => handleSerialNumberChange(index, e.target.value)}
-                    className="w-full"
+                    onChange={(e) =>
+                      handleSerialNumberChange(index, e.target.value)
+                    }
+                    className='w-full'
                   />
-                  <div className="flex items-center space-x-2">
+                  <div className='flex items-center space-x-2'>
                     <Button
-                      type="button"
-                      variant="outline"
+                      type='button'
+                      variant='outline'
                       onClick={() => validateStationSerialNumber(index)}
-                      className="whitespace-nowrap"
+                      className='whitespace-nowrap'
                     >
                       Validate
                     </Button>
                     {station.isValid && (
-                      <div className="flex items-center text-sm font-medium text-green-600">
-                        <Check className="h-4 w-4" />
+                      <div className='flex items-center text-sm font-medium text-green-600'>
+                        <Check className='h-4 w-4' />
                       </div>
                     )}
                   </div>
                 </div>
               ))}
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className='h-4 w-4' />
                 <AlertDescription>
-                  Note: Each charging station requires a valid serial number starting with "SN-".
+                  Note: Each charging station requires a valid serial number
+                  starting with "SN-".
                 </AlertDescription>
               </Alert>
             </div>
           </div>
         )}
 
-        {currentStep === "customer" && (
-          <div className="space-y-6">
-            <div className="space-y-4">
+        {currentStep === 'customer' && (
+          <div className='space-y-6'>
+            <div className='space-y-4'>
               <Label>Customer Selection</Label>
               <RadioGroup
                 value={customerSelectionType}
-                onValueChange={(value) => setCustomerSelectionType(value as CustomerSelectionType)}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                onValueChange={(value) =>
+                  setCustomerSelectionType(value as CustomerSelectionType)
+                }
+                className='grid grid-cols-1 sm:grid-cols-2 gap-4'
               >
                 <div>
-                  <RadioGroupItem value="existing" id="existing" className="peer sr-only" />
+                  <RadioGroupItem
+                    value='existing'
+                    id='existing'
+                    className='peer sr-only'
+                  />
                   <Label
-                    htmlFor="existing"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                    htmlFor='existing'
+                    className='flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
                   >
                     <span>Existing Customer</span>
                   </Label>
                 </div>
                 <div>
-                  <RadioGroupItem value="new" id="new" className="peer sr-only" />
+                  <RadioGroupItem
+                    value='new'
+                    id='new'
+                    className='peer sr-only'
+                  />
                   <Label
-                    htmlFor="new"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                    htmlFor='new'
+                    className='flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary'
                   >
                     <span>New Customer</span>
                   </Label>
@@ -541,23 +586,32 @@ export function OrderForm() {
               </RadioGroup>
             </div>
 
-            {customerSelectionType === "existing" && (
-              <div className="space-y-4">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Label htmlFor="customer-select">Select Customer</Label>
-                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                      <SelectTrigger id="customer-select">
-                        <SelectValue placeholder="Choose a customer" />
+            {customerSelectionType === 'existing' && (
+              <div className='space-y-4'>
+                <div className='flex items-end gap-2'>
+                  <div className='flex-1'>
+                    <Label htmlFor='customer-select'>Select Customer</Label>
+                    <Select
+                      value={selectedCustomerId}
+                      onValueChange={setSelectedCustomerId}
+                    >
+                      <SelectTrigger id='customer-select'>
+                        <SelectValue placeholder='Choose a customer' />
                       </SelectTrigger>
                       <SelectContent>
                         {userCustomers.length === 0 ? (
-                          <SelectItem value="none" disabled>
+                          <SelectItem
+                            value='none'
+                            disabled
+                          >
                             No customers found
                           </SelectItem>
                         ) : (
                           userCustomers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
+                            <SelectItem
+                              key={customer.id}
+                              value={customer.id}
+                            >
                               {customer.name} - {customer.email}
                             </SelectItem>
                           ))
@@ -565,31 +619,67 @@ export function OrderForm() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="button" onClick={handleCreateNewCustomer} className="flex items-center gap-1">
-                    <UserPlus className="h-4 w-4" />
+                  <Button
+                    type='button'
+                    onClick={handleCreateNewCustomer}
+                    className='flex items-center gap-1'
+                  >
+                    <UserPlus className='h-4 w-4' />
                     <span>Create New</span>
                   </Button>
                 </div>
 
                 {selectedCustomerId && (
-                  <div className="rounded-md border p-4 mt-4">
-                    <h3 className="font-medium mb-2">Customer Information</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className='rounded-md border p-4 mt-4'>
+                    <h3 className='font-medium mb-2'>Customer Information</h3>
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Name</p>
-                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.name}</p>
+                        <p className='text-sm font-medium text-muted-foreground'>
+                          Name
+                        </p>
+                        <p>
+                          {
+                            userCustomers.find(
+                              (c) => c.id === selectedCustomerId
+                            )?.name
+                          }
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Email</p>
-                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.email}</p>
+                        <p className='text-sm font-medium text-muted-foreground'>
+                          Email
+                        </p>
+                        <p>
+                          {
+                            userCustomers.find(
+                              (c) => c.id === selectedCustomerId
+                            )?.email
+                          }
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.phone}</p>
+                        <p className='text-sm font-medium text-muted-foreground'>
+                          Phone
+                        </p>
+                        <p>
+                          {
+                            userCustomers.find(
+                              (c) => c.id === selectedCustomerId
+                            )?.phone
+                          }
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Address</p>
-                        <p>{userCustomers.find((c) => c.id === selectedCustomerId)?.address}</p>
+                        <p className='text-sm font-medium text-muted-foreground'>
+                          Address
+                        </p>
+                        <p>
+                          {
+                            userCustomers.find(
+                              (c) => c.id === selectedCustomerId
+                            )?.address
+                          }
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -597,76 +687,93 @@ export function OrderForm() {
               </div>
             )}
 
-            {customerSelectionType === "new" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name</Label>
+            {customerSelectionType === 'new' && (
+              <div className='space-y-4'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='firstName'>First Name</Label>
                     <Input
-                      id="firstName"
-                      name="firstName"
+                      id='firstName'
+                      name='firstName'
                       value={customer.firstName}
                       onChange={handleCustomerChange}
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name</Label>
+                  <div className='space-y-2'>
+                    <Label htmlFor='lastName'>Last Name</Label>
                     <Input
-                      id="lastName"
-                      name="lastName"
+                      id='lastName'
+                      name='lastName'
                       value={customer.lastName}
                       onChange={handleCustomerChange}
                       required
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                <div className='space-y-2'>
+                  <Label htmlFor='email'>Email</Label>
                   <Input
-                    id="email"
-                    name="email"
-                    type="email"
+                    id='email'
+                    name='email'
+                    type='email'
                     value={customer.email}
                     onChange={handleCustomerChange}
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                <div className='space-y-2'>
+                  <Label htmlFor='phone'>
+                    Phone Number <span className='text-red-500'>*</span>
+                  </Label>
                   <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
+                    id='phone'
+                    name='phone'
                     value={customer.phone}
                     onChange={handleCustomerChange}
                     required
+                    placeholder='e.g. +1 (555) 123-4567'
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
+                <div className='space-y-2'>
+                  <Label htmlFor='address'>
+                    Street Address <span className='text-red-500'>*</span>
+                  </Label>
                   <Input
-                    id="address"
-                    name="address"
+                    id='address'
+                    name='address'
                     value={customer.address}
                     onChange={handleCustomerChange}
                     required
+                    placeholder='Full street address'
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" value={customer.city} onChange={handleCustomerChange} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
-                    <Input id="state" name="state" value={customer.state} onChange={handleCustomerChange} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="zipCode">Zip Code</Label>
+                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4'>
+                  <div className='space-y-2'>
+                    <Label htmlFor='city'>City</Label>
                     <Input
-                      id="zipCode"
-                      name="zipCode"
+                      id='city'
+                      name='city'
+                      value={customer.city}
+                      onChange={handleCustomerChange}
+                      required
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='state'>State</Label>
+                    <Input
+                      id='state'
+                      name='state'
+                      value={customer.state}
+                      onChange={handleCustomerChange}
+                      required
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='zipCode'>Zip Code</Label>
+                    <Input
+                      id='zipCode'
+                      name='zipCode'
                       value={customer.zipCode}
                       onChange={handleCustomerChange}
                       required
@@ -678,60 +785,79 @@ export function OrderForm() {
           </div>
         )}
 
-        {currentStep === "review" && (
-          <div className="space-y-6">
+        {currentStep === 'review' && (
+          <div className='space-y-6'>
             <div>
-              <h3 className="text-lg font-medium">Order Summary</h3>
-              <div className="mt-4 rounded-md border p-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Order Type:</span>
-                    <span className="capitalize">{orderType}</span>
+              <h3 className='text-lg font-medium'>Order Summary</h3>
+              <div className='mt-4 rounded-md border p-4'>
+                <div className='space-y-2'>
+                  <div className='flex justify-between'>
+                    <span className='font-medium'>Order Type:</span>
+                    <span className='capitalize'>{orderType}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Number of Charging Stations:</span>
+                  <div className='flex justify-between'>
+                    <span className='font-medium'>
+                      Number of Charging Stations:
+                    </span>
                     <span>{stationCount}</span>
                   </div>
-                  {orderType === "software" && selectedSoftware && (
+                  {orderType === 'software' && selectedSoftware && (
                     <>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Software Package:</span>
-                        <span>{softwarePackages.find((sw) => sw.id === selectedSoftware)?.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Software Term:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Software Package:</span>
                         <span>
-                          {softwareTerm} {Number.parseInt(softwareTerm) === 1 ? "Year" : "Years"}
+                          {
+                            softwarePackages.find(
+                              (sw) => sw.id === selectedSoftware
+                            )?.name
+                          }
+                        </span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Software Term:</span>
+                        <span>
+                          {softwareTerm}{' '}
+                          {Number.parseInt(softwareTerm) === 1
+                            ? 'Year'
+                            : 'Years'}
                         </span>
                       </div>
                     </>
                   )}
-                  {orderType === "bundle" && selectedBundle && (
+                  {orderType === 'bundle' && selectedBundle && (
                     <>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Bundle Package:</span>
-                        <span>{bundles.find((b) => b.id === selectedBundle)?.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Software Term:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Bundle Package:</span>
                         <span>
-                          {softwareTerm} {Number.parseInt(softwareTerm) === 1 ? "Year" : "Years"}
+                          {bundles.find((b) => b.id === selectedBundle)?.name}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Warranty Term:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Software Term:</span>
                         <span>
-                          {warrantyTerm} {Number.parseInt(warrantyTerm) === 1 ? "Year" : "Years"}
+                          {softwareTerm}{' '}
+                          {Number.parseInt(softwareTerm) === 1
+                            ? 'Year'
+                            : 'Years'}
+                        </span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Warranty Term:</span>
+                        <span>
+                          {warrantyTerm}{' '}
+                          {Number.parseInt(warrantyTerm) === 1
+                            ? 'Year'
+                            : 'Years'}
                         </span>
                       </div>
                     </>
                   )}
-                  <div className="pt-2">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Price Per Station:</span>
+                  <div className='pt-2'>
+                    <div className='flex justify-between'>
+                      <span className='font-medium'>Price Per Station:</span>
                       <span>${calculateTotal().pricePerStation}</span>
                     </div>
-                    <div className="flex justify-between font-bold border-t mt-2 pt-2">
+                    <div className='flex justify-between font-bold border-t mt-2 pt-2'>
                       <span>Total Amount Due:</span>
                       <span>${calculateTotal().total}</span>
                     </div>
@@ -739,59 +865,86 @@ export function OrderForm() {
                 </div>
               </div>
             </div>
-            <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-700">
-                This portal is only for activating licenses and associating them with charging station serial numbers.
-                The total amount shown is what you owe to the supplier. You are responsible for your own client
-                invoicing and payment processing.
+            <Alert className='bg-blue-50 border-blue-200 text-blue-800'>
+              <AlertCircle className='h-4 w-4 text-blue-600' />
+              <AlertDescription className='text-blue-700'>
+                This portal is only for activating licenses and associating them
+                with charging station serial numbers. The total amount shown is
+                what you owe to the supplier. You are responsible for your own
+                client invoicing and payment processing.
               </AlertDescription>
             </Alert>
 
             <div>
-              <h3 className="text-lg font-medium">Customer Information</h3>
-              <div className="mt-4 rounded-md border p-4">
-                <div className="space-y-2">
-                  {customerSelectionType === "existing" && selectedCustomerId && (
+              <h3 className='text-lg font-medium'>Customer Information</h3>
+              <div className='mt-4 rounded-md border p-4'>
+                <div className='space-y-2'>
+                  {customerSelectionType === 'existing' &&
+                    selectedCustomerId && (
+                      <>
+                        <div className='flex justify-between'>
+                          <span className='font-medium'>Customer:</span>
+                          <span>
+                            {
+                              userCustomers.find(
+                                (c) => c.id === selectedCustomerId
+                              )?.name
+                            }
+                          </span>
+                        </div>
+                        <div className='flex justify-between'>
+                          <span className='font-medium'>Email:</span>
+                          <span>
+                            {
+                              userCustomers.find(
+                                (c) => c.id === selectedCustomerId
+                              )?.email
+                            }
+                          </span>
+                        </div>
+                        <div className='flex justify-between'>
+                          <span className='font-medium'>Phone:</span>
+                          <span>
+                            {
+                              userCustomers.find(
+                                (c) => c.id === selectedCustomerId
+                              )?.phone
+                            }
+                          </span>
+                        </div>
+                        <div className='flex justify-between'>
+                          <span className='font-medium'>Address:</span>
+                          <span>
+                            {
+                              userCustomers.find(
+                                (c) => c.id === selectedCustomerId
+                              )?.address
+                            }
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  {customerSelectionType === 'new' && (
                     <>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Customer:</span>
-                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Email:</span>
-                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Phone:</span>
-                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.phone}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Address:</span>
-                        <span>{userCustomers.find((c) => c.id === selectedCustomerId)?.address}</span>
-                      </div>
-                    </>
-                  )}
-                  {customerSelectionType === "new" && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Name:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Name:</span>
                         <span>
                           {customer.firstName} {customer.lastName}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Email:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Email:</span>
                         <span>{customer.email}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Phone:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Phone:</span>
                         <span>{customer.phone}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-medium">Address:</span>
+                      <div className='flex justify-between'>
+                        <span className='font-medium'>Address:</span>
                         <span>
-                          {customer.address}, {customer.city}, {customer.state} {customer.zipCode}
+                          {customer.address}, {customer.city}, {customer.state}{' '}
+                          {customer.zipCode}
                         </span>
                       </div>
                     </>
@@ -801,12 +954,15 @@ export function OrderForm() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium">Charging Stations</h3>
-              <div className="mt-4 rounded-md border p-4">
-                <div className="space-y-2">
+              <h3 className='text-lg font-medium'>Charging Stations</h3>
+              <div className='mt-4 rounded-md border p-4'>
+                <div className='space-y-2'>
                   {stations.map((station, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span className="font-medium">Station {index + 1}:</span>
+                    <div
+                      key={index}
+                      className='flex justify-between'
+                    >
+                      <span className='font-medium'>Station {index + 1}:</span>
                       <span>{station.serialNumber}</span>
                     </div>
                   ))}
@@ -816,21 +972,24 @@ export function OrderForm() {
           </div>
         )}
 
-        {currentStep === "licenses" && (
-          <div className="space-y-6">
+        {currentStep === 'licenses' && (
+          <div className='space-y-6'>
             <div>
-              <h3 className="text-lg font-medium">License Keys</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Below are the unique license keys for each charging station. Please save this information.
+              <h3 className='text-lg font-medium'>License Keys</h3>
+              <p className='text-sm text-muted-foreground mb-4'>
+                Below are the unique license keys for each charging station.
+                Please save this information.
               </p>
-              <div className="rounded-md border overflow-x-auto">
-                <Table className="min-w-[600px]">
+              <div className='rounded-md border overflow-x-auto'>
+                <Table className='min-w-[600px]'>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Station</TableHead>
                       <TableHead>Serial Number</TableHead>
                       <TableHead>Software License Key</TableHead>
-                      {orderType === "bundle" && <TableHead>Warranty License Key</TableHead>}
+                      {orderType === 'bundle' && (
+                        <TableHead>Warranty License Key</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -838,9 +997,13 @@ export function OrderForm() {
                       <TableRow key={index}>
                         <TableCell>Station {index + 1}</TableCell>
                         <TableCell>{station.serialNumber}</TableCell>
-                        <TableCell className="font-mono text-xs">{station.softwareLicenseKey}</TableCell>
-                        {orderType === "bundle" && (
-                          <TableCell className="font-mono text-xs">{station.warrantyLicenseKey}</TableCell>
+                        <TableCell className='font-mono text-xs'>
+                          {station.softwareLicenseKey}
+                        </TableCell>
+                        {orderType === 'bundle' && (
+                          <TableCell className='font-mono text-xs'>
+                            {station.warrantyLicenseKey}
+                          </TableCell>
                         )}
                       </TableRow>
                     ))}
@@ -850,18 +1013,20 @@ export function OrderForm() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium">Order Summary</h3>
-              <div className="mt-4 rounded-md border p-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Order Type:</span>
-                    <span className="capitalize">{orderType}</span>
+              <h3 className='text-lg font-medium'>Order Summary</h3>
+              <div className='mt-4 rounded-md border p-4'>
+                <div className='space-y-2'>
+                  <div className='flex justify-between'>
+                    <span className='font-medium'>Order Type:</span>
+                    <span className='capitalize'>{orderType}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Number of Charging Stations:</span>
+                  <div className='flex justify-between'>
+                    <span className='font-medium'>
+                      Number of Charging Stations:
+                    </span>
                     <span>{stationCount}</span>
                   </div>
-                  <div className="flex justify-between font-bold border-t mt-2 pt-2">
+                  <div className='flex justify-between font-bold border-t mt-2 pt-2'>
                     <span>Total Amount Due:</span>
                     <span>${calculateTotal().total}</span>
                   </div>
@@ -870,29 +1035,34 @@ export function OrderForm() {
             </div>
 
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className='h-4 w-4' />
               <AlertDescription>
-                Please save or print this page for your records. You will need these license keys to activate the
-                software and warranty for each charging station.
+                Please save or print this page for your records. You will need
+                these license keys to activate the software and warranty for
+                each charging station.
               </AlertDescription>
             </Alert>
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
-        {currentStep !== "product" && (
-          <Button variant="outline" onClick={prevStep}>
+      <CardFooter className='flex justify-between'>
+        {currentStep !== 'product' && (
+          <Button
+            variant='outline'
+            onClick={prevStep}
+          >
             Back
           </Button>
         )}
-        {currentStep === "licenses" ? (
+        {currentStep === 'licenses' ? (
           <Button onClick={handleSubmit}>Complete Order</Button>
         ) : (
           <Button
             onClick={nextStep}
             disabled={
-              currentStep === "product" &&
-              ((orderType === "software" && !selectedSoftware) || (orderType === "bundle" && !selectedBundle))
+              currentStep === 'product' &&
+              ((orderType === 'software' && !selectedSoftware) ||
+                (orderType === 'bundle' && !selectedBundle))
             }
           >
             Next
@@ -902,4 +1072,3 @@ export function OrderForm() {
     </Card>
   )
 }
-
